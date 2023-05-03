@@ -5,43 +5,33 @@ import time
 import json
 import pandas as pd
 
-# UID = 'u-s4t2af-1ab44b560272e94911e0e0669544b34118f3de8e9dfad893cb29e857e48d211c'
-# SECRET = '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'
+UID = input("\033[0;35mUID: \033[0m")
+SECRET = input("\033[0;35mSECRET: \033[0m")
+headers = {'Content-type':'application/json'}
+r = requests.post(f"https://api.intra.42.fr/oauth/token?grant_type=client_credentials&client_id={UID}&client_secret={SECRET}", headers=headers)
+access_token = r.json()['access_token']
 
-# headers = {'Content-type':'application/json'}
-# r = requests.post(f"https://api.intra.42.fr/oauth/token?grant_type=client_credentials&client_id={UID}&client_secret={SECRET}", headers=headers)
-# access_token = r.json()['access_token']
-# print(access_token)
-access_token = "148fc4eab9f675e9a7b9ec4bdb6b006e793a28de6e363794d2dfcadf6ce6c60d"
-campus = 34
-user_id = 106424
+# Bloc manages coalitions for each campus
+campus_id = 34
+# Cadet coalition
 bloc_id = 50
+# Default coalition (RED & BLUE)
 bloc_id_2 = 41
+# coalition_name & coalition_id paring
 coalitions = {
 	"kernel":183,
 	"seg":182,
 	"unix":181,
 	"bug": 180,
-}
-coalitions_id = [180, 181, 182, 183]
-coalitions_name = ["BB", "UU", "SS", "KK"]
-
-coalitions_2 = {
-	"red": 147,
+    "red": 147,
 	"blue": 148
 }
-# # url = f'https://api.intra.42.fr/v2/blocs?campus_id=34&access_token={access_token}'
-# url = f"https://api.intra.42.fr/v2/coalitions/180/coalitions_users?per_page=100&page={1}&access_token={access_token}"
-# response = requests.get(url)
-# print(response.json())
-# with open("coalitions.json","w") as f:
-# 	f.write(json.dumps(response.json()))
+extra_id = [147, 148]
+extra_name = ["RED", "BLUE"]
 
+coalitions_id = [180, 181, 182, 183]
+coalitions_name = ["BB", "UU", "SS", "KK"]
 def get_all_coalitions(coalition_id, file_name="untitled"):
-    print("\033[0;33mREQUESTING FOR ALL USERS\033[0m")
-    # 'i' represent the page
-    # 'tol' represents the number of results in a page 100 by default
-    # 'full_list' stores all the results of the users in a json array.
     i = 1
     tol = 100
     full_list = []
@@ -51,26 +41,13 @@ def get_all_coalitions(coalition_id, file_name="untitled"):
         full_list += response.json()
         tol = len(response.json())
         i += 1
-    # output results to "user_42kl.json"
     with open(f"{file_name}.json","w") as f:
         f.write(json.dumps(full_list))
-    print("\033[0;33mREQUEST COMPLETED\033[0m")
-# get_all_coalitions(180, "BB")
-# get_all_coalitions(181, "UU")
-# get_all_coalitions(182, "SS")
-# get_all_coalitions(183, "KK")
+    print(f"\033[0;33mCOALITION {coalition_id} GENERATED\033[0m")
 
-with open("cadets.json", "r") as f :
-     cadets = json.loads(f.read())
-
-# with open("BB.json", "r") as f:
-# 	BB = json.loads(f.read())
-# with open("UU.json", "r") as f:
-# 	UU = json.loads(f.read())
-# with open("SS.json", "r") as f:
-# 	SS = json.loads(f.read())
-# with open("KK.json", "r") as f:
-# 	KK = json.loads(f.read())
+# # Run this to get all users in each coalition
+# for i in range(len(coalitions_id)):
+#       get_all_coalitions(coalition_id[i], coalitions_name[i])
 
 def check_user_in_coalition(coalition_name, user_id):
     with open(f"{coalition_name}.json", "r") as f:
@@ -80,25 +57,30 @@ def check_user_in_coalition(coalition_name, user_id):
             return (coalition_name)
     return None
 
+def generate_list(file_name="untitled"):
+    # Require a json of all cadets
+	with open("cadets.json", "r") as f :
+		cadets = json.loads(f.read())
+	full_list = []
+	for cadet in cadets:
+		user = {}
+		user["id"] = cadet["id"]
+		user["intra_id"] = cadet["login"]
+		user["intra_full_name"] = cadet["usual_full_name"].upper()
+		user["intra_url"] = cadet["url"]
+		user["batch"] = datetime.strptime(cadet["cursus_users"][1]["begin_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d/%m/%Y")
+		user["coalition"] = "NO TEAM"
+		for coalition in coalitions_name:
+			temp = check_user_in_coalition(coalition, cadet["id"])
+			if (check_user_in_coalition(coalition, cadet["id"]) != None):
+				user["coalition"] = coalition
+				break
+		full_list.append(user)
+		
+	with open(f"{file_name}.json", "w") as f:
+		f.write(json.dumps(full_list))
+	data = pd.DataFrame.from_dict(full_list)
+	data.to_excel(f"{file_name}.xlsx", index=False)
 
-full_list = []
-
-for cadet in cadets:
-	user = {}
-	user["id"] = cadet["id"]
-	user["intra_id"] = cadet["login"]
-	user["intra_full_name"] = cadet["usual_full_name"].upper()
-	user["intra_url"] = cadet["url"]
-	user["batch"] = datetime.strptime(cadet["cursus_users"][1]["begin_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d/%m/%Y")
-	user["coalition"] = "NO TEAM"
-	for coalition in coalitions_name:
-		temp = check_user_in_coalition(coalition, cadet["id"])
-		if (check_user_in_coalition(coalition, cadet["id"]) != None):
-			user["coalition"] = coalition
-			break
-	full_list.append(user)
-     
-with open("full_list.json", "w") as f:
-    f.write(json.dumps(full_list))
-data = pd.DataFrame.from_dict(full_list)
-data.to_excel(f"full_list.xlsx", index=False)
+# Specify filename to generate list
+generate_list("coalition_list")
